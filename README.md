@@ -1,2 +1,292 @@
+[README (2).md](https://github.com/user-attachments/files/26711209/README.2.md)
 # Captcha-Breaker
 Deep Learning CAPTCHA Breaker &amp; Generator
+# 🔐 CAPTCHA Breaker & Generator — Deep Learning Project
+
+> **Hochschule Bonn-Rhein-Sieg — Deep Learning Project**  
+> Three independent model implementations by three team members using PyTorch & TensorFlow/Keras.  
+> **Team:** Dirar Tlas · Danil Ampntel Karim · Mario Lozanu
+
+---
+
+<details>
+<summary>🇩🇪 Deutsche Version (klicken zum Aufklappen)</summary>
+
+## 📖 Projektbeschreibung
+
+Wir entwickeln neuronale Netze zur Erkennung verzerrter Text-CAPTCHAs im Rahmen des Deep-Learning-Moduls an der Hochschule Bonn-Rhein-Sieg. Dabei trainieren wir CNN- und CRNN-Modelle, analysieren die Robustheit aktueller CAPTCHA-Systeme und zeigen Sicherheitslücken sowie mögliche Verbesserungen auf.
+
+### Was ist ein CAPTCHA?
+
+Ein CAPTCHA (*Completely Automated Public Turing test to tell Computers and Humans Apart*) ist ein Challenge-Response-Test, der unterscheiden soll, ob ein Nutzer ein Mensch oder ein Bot ist. Text-CAPTCHAs zeigen verzerrte Buchstaben, Rauschen und störende Linien, die für Maschinen schwer zu lesen sein sollen.
+
+### Warum ist das Thema relevant?
+
+- **Sicherheitsvalidierung** — Wie robust sind aktuelle Text-CAPTCHAs gegen KI-Angriffe?
+- **Schwachstellen aufdecken** — Um stärkere CAPTCHA-Systeme entwickeln zu können
+- **Deep-Learning-Forschung** — Grenzen von CNNs/CRNNs bei verrauschten Eingaben erforschen
+
+### Fazit
+
+CRNN-Modelle erzielen die höchste Erkennungsgenauigkeit. Eine Denoising-Vorstufe (DAE) verbessert die Genauigkeit auf verrauschten Bildern signifikant. Reine Text-CAPTCHAs bieten keinen ausreichenden Schutz mehr gegen moderne KI-Modelle.
+
+</details>
+
+---
+
+## 📖 Project Description (English)
+
+We built and trained neural networks to recognize distorted text-based CAPTCHAs, systematically compared CNN and CRNN architectures, and analyzed how preprocessing affects recognition accuracy.
+
+| Team Member | File | Framework | Approach |
+|---|---|---|---|
+| **Dirar Tlas** | `Captcha_dirar.ipynb` | PyTorch | CAPTCHA Generator + CRNN + CTC Loss |
+| **Mario Lozanu** | `Captcha_Mario.py` + `Captcha_Mario_slover.py` | TensorFlow/Keras | DAE pre-training + CRNN with CTC Loss |
+| **Danil Ampntel Karim** | `Captcha_daniel.py` | TensorFlow/Keras | CNN Classifier + Data Augmentation |
+
+---
+
+## 📁 Repository Structure
+
+```
+captcha-breaker/
+│
+├── Captcha_dirar.ipynb        # Dirar: CAPTCHA Generator + PyTorch CRNN (CTC)
+├── Captcha_Mario.py           # Mario: DAE pre-training + CRNN backbone
+├── Captcha_Mario_slover.py    # Mario: Full CRNN solver (CTC loss, cyclic training)
+├── Captcha_daniel.py          # Danil: TF/Keras CNN Classifier
+│
+├── captchas_multi/            # Dataset: ~2001 generated + internet CAPTCHAs
+│   └── *.png
+│
+└── README.md
+```
+
+---
+
+## 🗂️ Dataset
+
+The `captchas_multi/` folder contains **~2001 CAPTCHA images** — a mix of self-generated CAPTCHAs (Dirar's generator) and internet CAPTCHAs from Kaggle. Labels are encoded in the filename stem (e.g. `abcd1.png` → label `abcd1`). For large-scale training, Mario's model used a dataset of **~84,000 samples**.
+
+**External datasets used:**
+- [Large CAPTCHA Dataset — Kaggle (akashguna)](https://www.kaggle.com/datasets/akashguna/large-captcha-dataset)
+- [CAPTCHA Version 2 Images — Kaggle (fournierp)](https://www.kaggle.com/datasets/fournierp/captcha-version-2-images)
+
+---
+
+## 🧠 Models
+
+### 1. Dirar — CAPTCHA Generator + CRNN (PyTorch)
+
+**File:** `Captcha_dirar.ipynb`
+
+#### CAPTCHA Generator
+
+Generates text-based CAPTCHAs with a configurable `DIFFICULTY` parameter (`0.0` = easy → `1.0` = hard). Features: DejaVu fonts, per-character rotation and color variation, noise, distortion, and line artifacts scaled to difficulty. Set `REGENERATE_DATASET = True` on first run.
+
+#### CRNN Architecture (PyTorch + CTC Loss)
+
+```
+Input: grayscale [B, 1, 32, 160]
+  → Conv2D(64, 3×3) + ReLU + MaxPool(2×2)    # 16 × 80
+  → Conv2D(128, 3×3) + ReLU + MaxPool(2×2)   # 8  × 40
+  → Reshape → Bidirectional LSTM
+  → Linear → softmax per timestep
+  → CTC Greedy Decode (collapse repeats + remove blanks)
+```
+
+- **Loss:** `nn.CTCLoss` — handles variable-length sequences without aligned labels
+- **Training:** time-based loop (configurable minutes), saves best checkpoint
+- **Metrics:** exact-match accuracy + character-level accuracy per validation epoch
+
+---
+
+### 2. Mario — CRNN with CTC Loss (TensorFlow/Keras)
+
+**Files:** `Captcha_Mario.py` (DAE pre-training + CRNN backbone) · `Captcha_Mario_slover.py` (full CRNN solver)
+
+Two complementary scripts: `Captcha_Mario.py` handles the Denoising Autoencoder warm-up and fixed-5-char CRNN; `Captcha_Mario_slover.py` is the full production solver with a deeper CRNN, real CTC loss, and cyclic training.
+
+#### CRNN Architecture (`Captcha_Mario_slover.py`)
+
+```
+Input: RGB image (50×200×3)
+  → Conv2D(64, 3×3, relu) + MaxPool(2×2)           # Block 1
+  → Conv2D(64, 3×3, relu) + MaxPool(2×2)           # Block 2
+  → Conv2D(32, 3×3) + BatchNorm + ReLU + MaxPool   # Block 3
+  → Reshape → (100 timesteps × 800 features)
+  → Dense(64, relu) + Dropout(0.2)
+  → Bidirectional LSTM(128, return_sequences=True)
+  → Bidirectional LSTM(64,  return_sequences=True)
+  → Dense(vocab+1, softmax)
+  → Custom CTC Loss Layer
+```
+
+- **Loss:** Custom `LayerCTC` using `keras.backend.ctc_batch_cost` — handles variable-length sequence alignment without needing character-level position labels
+- **Optimizer:** Adam with `CosineDecayRestarts` LR schedule + gradient clipping (`clipnorm=1.0`)
+- **Decoding:** CTC greedy decode via `keras.backend.ctc_decode`
+- **Data augmentation:** Random brightness, contrast, and ±5° rotation (pure TensorFlow, no OpenCV dependency)
+
+#### Cyclic Training Strategy
+
+Each training cycle randomly draws 4,000 images from the full dataset, trains for 10 epochs, evaluates exact-match CAPTCHA accuracy, then repeats for 10 rounds. This acts as lightweight curriculum randomization across the large dataset.
+
+**Callbacks:** EarlyStopping (patience=10), ModelCheckpoint (best model saved to `best_captcha.keras`), ReduceLROnPlateau (factor=0.5), TensorBoard logging. Automatically resumes from checkpoint on re-run.
+
+**Training progress (on ~84k dataset):**
+
+| Epochs | CAPTCHA Accuracy |
+|---|---|
+| 500 | ~60–61% |
+| 1000 | ~74–75% |
+
+---
+
+### 3. Danil — CNN Classifier (TensorFlow/Keras)
+
+**File:** `Captcha_daniel.py`
+
+A sequential CNN that predicts all 5 CAPTCHA characters **simultaneously** using a reshaped output layer.
+
+#### Architecture
+
+```
+Input: grayscale (70×200×1)
+  → Data Augmentation (RandomRotation ±5%, RandomZoom 10%, RandomTranslation 5%)
+  → Conv2D(32,  5×5, relu) + MaxPooling2D(2×2)
+  → Conv2D(48,  3×3, relu) + MaxPooling2D(2×2)
+  → Conv2D(64,  3×3, relu) + MaxPooling2D(2×2)
+  → Flatten
+  → Dense(256, relu) + Dropout(0.25)
+  → Dense(5 × num_classes)
+  → Reshape(5, num_classes)
+  → Softmax(axis=-1)           ← one distribution per character slot
+```
+
+- **Loss:** `sparse_categorical_crossentropy` (per character position)
+- **Optimizer:** Adam
+- **Training:** up to 100 epochs with `EarlyStopping(patience=8, restore_best_weights=True)`
+
+#### Preprocessing Pipeline
+
+```
+Multi-zip loading (captcha_4k.zip, CaptchaColored3.zip, archive.zip)
+  → RGB → Grayscale (PIL)
+  → Resize to 200×70 px (LANCZOS)
+  → Normalize [0, 1]
+  → Label: filename stem → character index per position (length 5)
+  → 80/20 train/val split (sklearn, random_state=42)
+```
+
+**Key features:**
+- Data augmentation (rotation, zoom, translation) for generalization on small datasets
+- Per-epoch training time logging via `TimeHistory` callback
+- Confusion matrix (character-level) using sklearn + seaborn heatmap
+- `predict_image()` helper for single-image inference
+- Saves weights to `cnn_weights.weights.h5` and history to `cnn_history.pkl`
+- Full evaluation loop: exact-match accuracy + time-per-CAPTCHA measurement
+
+---
+
+## 📊 Experiment Results (Dataset of ~84,000 images)
+
+Systematic **kernel size, filter count, and GRU size experiments** were run comparing CNN and CRNN models.
+
+### Kernel Size Experiment
+
+| Configuration | CNN CAPTCHA Acc | CRNN Train Acc | CRNN Val Acc | CRNN CAPTCHA Acc | Time/CAPTCHA |
+|---|---|---|---|---|---|
+| Base (3×3) | 21.36% | 84.51% | 74.36% | 27.70% | ~0.004s |
+| Kernel 3×5 | 24.03% | 94.51% | 78.83% | 43.88% | ~0.003s |
+| **Kernel 5×5** | **26.92%** | **98.18%** | **80.53%** | **46.84%** | ~0.004s |
+
+### Filter Count Experiment
+
+| Configuration | CNN CAPTCHA Acc | CRNN Train Acc | CRNN Val Acc | CRNN CAPTCHA Acc |
+|---|---|---|---|---|
+| Filter 32 | 19.88% | 82.35% | 65.38% | 22.53% |
+| Filter 48 | 23.17% | 86.49% | 71.42% | 29.67% |
+| Filter 64 | 24.87% | 88.61% | 74.15% | 31.97% |
+| **Filter 128** | **27.34%** | **89.61%** | **76.41%** | **37.78%** |
+
+### GRU Size Experiment (CRNN only)
+
+| Configuration | Train Acc | Val Acc | CAPTCHA Acc |
+|---|---|---|---|
+| GRU 32 | 81.49% | 63.72% | 28.28% |
+| Base GRU 64 | 84.51% | 74.36% | 27.70% |
+| GRU 96 | 85.18% | 69.24% | 24.36% |
+
+> **Note:** "CAPTCHA Acc" = full 5-character exact match. Character-level accuracy is significantly higher in all cases.
+
+**Best overall:** CRNN with Kernel 5×5, Filter 128 — **Val Acc: 80.53%, CAPTCHA Acc: 46.84%**
+
+---
+
+## ⚙️ Setup & Installation
+
+### Requirements
+
+```bash
+# Shared
+pip install numpy matplotlib seaborn scikit-learn Pillow opencv-python pandas
+
+# TensorFlow (Mario & Danil)
+pip install tensorflow
+
+# PyTorch (Dirar)
+pip install torch torchvision
+```
+
+### Running the Models
+
+**Dirar (Jupyter):**
+```bash
+jupyter notebook Captcha_dirar.ipynb
+# Set REGENERATE_DATASET = True on first run
+# Adjust DIFFICULTY (0.0–1.0) as needed
+```
+
+**Mario (Python script):**
+```bash
+python Captcha_Mario.py
+# Dataset must be in ML/samples/ as PNG files named by their label (e.g. abcde.png)
+# Automatically resumes from checkpoint if crnn_fixedk55f128v2.weights.h5 exists
+```
+
+**Danil (Python script):**
+```bash
+python Captcha_daniel.py
+# Requires captcha_4k.zip, CaptchaColored3.zip, archive (11).zip in working directory
+# Extracts to combined_samples/, converts to grayscale in combined_gray/
+# Saves weights to cnn_weights.weights.h5
+```
+
+---
+
+## 🔎 Key Takeaways
+
+- **CRNN outperforms CNN** — the recurrent layer captures sequential character dependencies that a flat CNN misses, especially for exact full-sequence accuracy
+- **Larger kernels (5×5) work better for CAPTCHAs** than standard (3×3) — CAPTCHA characters have broader spatial features than typical natural image objects
+- **More filters help, but with diminishing returns** — Filter 128 was optimal; higher counts increase training time without proportional accuracy gains
+- **GRU size is not the bottleneck** — the CNN backbone quality matters far more than RNN capacity
+- **A denoising pre-step (DAE) significantly improves accuracy** on noisy RGB CAPTCHAs by giving the recognizer cleaner input
+- **Full-sequence exact-match accuracy is the hardest metric** — even one wrong character out of five counts as complete failure
+- **Text-based CAPTCHAs are no longer secure** — even with noise and distortions, deep learning models can achieve competitive accuracy, suggesting that more complex CAPTCHA designs are needed
+
+---
+
+## 🙏 Credits
+
+- [GeeksForGeeks — How to Break a CAPTCHA System with Machine Learning](https://www.geeksforgeeks.org/blogs/how-to-break-a-captcha-system-with-machine-learning/)
+- [Large CAPTCHA Dataset — Kaggle (akashguna)](https://www.kaggle.com/datasets/akashguna/large-captcha-dataset)
+- [CAPTCHA Version 2 Images — Kaggle (fournierp)](https://www.kaggle.com/datasets/fournierp/captcha-version-2-images)
+- [romwo32/Captcha-Breaker](https://github.com/romwo32/Captcha-Breaker) — reference project
+
+Parts of the code were assisted by ChatGPT and Claude AI for debugging and optimization.
+
+---
+
+## 📄 License
+
+Developed for educational purposes as part of the Deep Learning module at **Hochschule Bonn-Rhein-Sieg (H-BRS)**.
