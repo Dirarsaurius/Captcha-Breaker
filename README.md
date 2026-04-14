@@ -281,7 +281,6 @@ jupyter notebook Captcha_danil.ipynb
 - [GeeksForGeeks — How to Break a CAPTCHA System with Machine Learning](https://www.geeksforgeeks.org/blogs/how-to-break-a-captcha-system-with-machine-learning/)
 - [Large CAPTCHA Dataset — Kaggle (akashguna)](https://www.kaggle.com/datasets/akashguna/large-captcha-dataset)
 - [CAPTCHA Version 2 Images — Kaggle (fournierp)](https://www.kaggle.com/datasets/fournierp/captcha-version-2-images)
-- [romwo32/Captcha-Breaker](https://github.com/romwo32/Captcha-Breaker) — reference project
 
 Parts of the code were assisted by ChatGPT and Claude AI for debugging and optimization.
 
